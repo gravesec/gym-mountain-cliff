@@ -18,6 +18,7 @@ class MountainCliffEnv(gym.Env):
         self.goal_position = .5
         self.force = .001
         self.gravity = .0025
+        self.cliff_penalty = -100.
         self.low = np.array([self.min_position, -self.max_speed], dtype=np.float32)
         self.high = np.array([self.max_position, self.max_speed], dtype=np.float32)
         self.viewer = None
@@ -36,10 +37,14 @@ class MountainCliffEnv(gym.Env):
         velocity = np.clip(velocity, -self.max_speed, self.max_speed)
         position += velocity
         position = np.clip(position, self.min_position, self.max_position)
-        if (position == self.min_position and velocity < 0): velocity = 0
+        if position <= self.min_position:
+            reward = self.cliff_penalty
+            self.state = self.reset()
+        else:
+            reward = -1.
+            self.state = (position, velocity)
+
         done = bool(position >= self.goal_position)
-        reward = -1.
-        self.state = (position, velocity)
         return np.array(self.state), reward, done, {}
 
     def reset(self):
@@ -94,10 +99,6 @@ class MountainCliffEnv(gym.Env):
         self.cartrans.set_translation((pos - self.min_position) * scale, self._height(pos) * scale)
         self.cartrans.set_rotation(math.cos(3 * pos))
         return self.viewer.render(return_rgb_array = mode == 'rgb_array')
-
-    # Is this function used anywhere?
-    def get_keys_to_action(self):
-        return { ():1, (276,):0, (275,):2, (275, 276):1}  # control with left and right arrow keys
 
     def close(self):
         if self.viewer:
