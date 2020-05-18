@@ -12,6 +12,7 @@ class MountainCliffEnv(gym.Env):
     }
 
     def __init__(self):
+        self.cliff_position = -1.2
         self.min_position = -1.2
         self.max_position = .6
         self.max_speed = .07
@@ -19,7 +20,7 @@ class MountainCliffEnv(gym.Env):
         self.force = .001
         self.gravity = .0025
         self.cliff_penalty = -100.
-        self.low = np.array([self.min_position, -self.max_speed], dtype=np.float32)
+        self.low = np.array([self.cliff_position, -self.max_speed], dtype=np.float32)
         self.high = np.array([self.max_position, self.max_speed], dtype=np.float32)
         self.viewer = None
         self.action_space = spaces.Discrete(3)
@@ -36,8 +37,8 @@ class MountainCliffEnv(gym.Env):
         velocity += (action - 1) * self.force + math.cos(3 * position) * (-self.gravity)
         velocity = np.clip(velocity, -self.max_speed, self.max_speed)
         position += velocity
-        position = np.clip(position, self.min_position, self.max_position)
-        if position <= self.min_position:
+        position = np.clip(position, self.cliff_position, self.max_position)
+        if position <= self.cliff_position:
             reward = self.cliff_penalty
             self.state = self.reset()
         else:
@@ -64,12 +65,17 @@ class MountainCliffEnv(gym.Env):
         if self.viewer is None:
             from gym.envs.classic_control import rendering
             self.viewer = rendering.Viewer(screen_width, screen_height)
-            xs = np.linspace(self.min_position, self.max_position, 100)
+            xs = np.linspace(self.cliff_position, self.max_position, 100)
             ys = self._height(xs)
             xys = list(zip((xs - self.min_position) * scale, ys * scale))
             self.track = rendering.make_polyline(xys)
             self.track.set_linewidth(4)
             self.viewer.add_geom(self.track)
+            cliff_x = (self.cliff_position - self.min_position) * scale
+            cliff_y = self._height(self.cliff_position) * scale
+            cliff = rendering.Line((cliff_x, cliff_y), (cliff_x, cliff_y - 1000))
+            cliff.linewidth.stroke = 4
+            self.viewer.add_geom(cliff)
             clearance = 10
             l, r, t, b = -carwidth/2, carwidth/2, carheight, 0
             car = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
